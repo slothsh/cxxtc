@@ -49,7 +49,7 @@
 #define __FPSFORMAT_VALUE_TO_INT(in) GET_ENUM_MAPPING_1(__FPSFORMAT_INT(), in)
 #define __FPSFORMAT_INT_TO_VALUE(in) GET_ENUM_MAPPING_2(__FPSFORMAT_INT(), in)
 #define __FPSFORMAT_INT() DECLARE_ENUM_MAPPING(__FPS_TYPE(),                            \
-                                               cxxtc::chrono::int64_t,                    \
+                                               cxxtc::chrono::int64_t,                  \
                                                [](){ VTM_WARN("unknown fps format"); }, \
                                                [](){ VTM_WARN("unknown fps format"); }, \
                                                __FPS_TYPE()::none,                      \
@@ -64,7 +64,7 @@
 #define __FPSFORMAT_VALUE_TO_FLOAT(in) GET_ENUM_MAPPING_1(__FPSFORMAT_FLOAT(), in)
 #define __FPSFORMAT_FLOAT_TO_VALUE(in) GET_ENUM_MAPPING_2(__FPSFORMAT_FLOAT(), in)
 #define __FPSFORMAT_FLOAT() DECLARE_ENUM_MAPPING(__FPS_TYPE(),                            \
-                                                 cxxtc::chrono::float64_t,                  \
+                                                 cxxtc::chrono::float64_t,                \
                                                  [](){ VTM_WARN("unknown fps format"); }, \
                                                  [](){ VTM_WARN("unknown fps format"); }, \
                                                  __FPS_TYPE()::none,                      \
