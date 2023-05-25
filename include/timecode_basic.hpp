@@ -10,6 +10,7 @@
 // Standard headers
 #include <algorithm>
 #include <bit>
+#include <bits/utility.h>
 #include <cassert>
 #include <compare>
 #include <cstring>
@@ -130,6 +131,13 @@ namespace cxxtc::chrono::internal {
 #define UNWRAP_TCVALUES(p, m, n) p.m[0], p.m[1], p.m[2], p.m[3], p.m[4]
 
 // TODO: Make this accept variable size
+#define INIT_GROUPS_WITH_SV(value) __init_with_sv<0>(value), \
+                                   __init_with_sv<1>(value), \
+                                   __init_with_sv<2>(value), \
+                                   __init_with_sv<3>(value), \
+                                   __init_with_sv<4>(value)
+
+// TODO: Make this accept variable size
 #define TCVALUES_DEFAULT_INITIALIZER { 0, 0, 0, 0, 0 }
 
 // TODO: Make this accept variable size
@@ -166,7 +174,7 @@ struct fps {};
 ///////////////////////////////////////////////////////////////////////////
 
 template<typename... Ts, std::size_t... Is>
-static constexpr auto __init_tick_groups(std::tuple<Ts...> is, std::index_sequence<Is...> seq)
+static consteval auto __init_tick_groups(std::tuple<Ts...> is, std::index_sequence<Is...> seq)
 {
     return std::tuple {
         std::tuple {
@@ -195,6 +203,40 @@ static constexpr auto __init_tick_groups(std::tuple<Ts...> is, std::index_sequen
             }
         } ...
     };
+}
+
+template<std::size_t N>
+static constexpr auto __init_with_sv(std::string_view tc) {
+    // validate tc_string
+    // TODO: Better default behaviour for invalid tc strings
+    static_assert(true, "timecode passed to constructor has an invalid format");
+
+    // transfer tc_string data
+    uint8_t current = 0;
+    std::size_t group_index = 0;
+    std::size_t values_index = 0;
+    std::size_t decimal_pos = TC_GROUP_WIDTH - 1;
+    std::array<uint8_t, 5> buffer{};
+
+    char c = *tc.data();
+    for (std::ptrdiff_t i = 1; c != '\0'; ++i) {
+        if (group_index++ < TC_GROUP_WIDTH) {
+            current += (c - TCSTRING_CHAR_OFFSET) * (std::pow(10, decimal_pos--)); // TODO: Roll your own integral pow function to avoid conversion
+        }
+
+        else {
+            buffer[values_index++] = current;
+            current = 0;
+            group_index = 0;
+            decimal_pos = TC_GROUP_WIDTH - 1;
+        }
+
+        c = *(tc.data() + i);
+    }
+
+    buffer[values_index] = current;
+
+    return buffer[N];
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -381,68 +423,15 @@ public:
                                  const fps_scalar_t fps = fps_t::default_value())
         : _fps(fps)
         , _flags(TCFLAGS_DEFAULT)
-        , _values{}
-    {
-        // validate tc_string
-        // TODO: Better default behaviour for invalid tc strings
-        assert(this->is_valid_tc_string(tc) && "timecode passed to constructor has an invalid format");
-
-        // transfer tc_string data
-        scalar_t current = 0;
-        std::size_t group_index = 0;
-        std::size_t values_index = 0;
-        std::size_t decimal_pos = TC_GROUP_WIDTH - 1;
-
-        char_t c = *tc;
-        for (std::ptrdiff_t i = 1; c != '\0'; ++i) {
-            if (group_index++ < TC_GROUP_WIDTH) {
-                current += (c - TCSTRING_CHAR_OFFSET) * (std::pow(10, decimal_pos--)); // TODO: Roll your own integral pow function to avoid conversion
-            }
-
-            else {
-                this->_values[values_index++] = current;
-                current = 0;
-                group_index = 0;
-                decimal_pos = TC_GROUP_WIDTH - 1;
-            }
-
-            c = *(tc + i);
-        }
-
-        this->_values[values_index] = current;
-    }
+        , _values{INIT_GROUPS_WITH_SV(tc)}
+    {}
 
     constexpr __BasicTimecodeInt(string_view_t tc,
                                  const fps_scalar_t fps = fps_t::default_value())
         : _fps(fps)
         , _flags(TCFLAGS_DEFAULT)
-        , _values{}
-    {
-        // validate tc_string
-        // TODO: Better default behaviour for invalid tc strings
-        assert(this->is_valid_tc_string(tc) && "timecode passed to string constructor has an invalid format");
-
-        // transfer tc_string data
-        scalar_t current = 0;
-        std::size_t group_index = 0;
-        std::size_t values_index = 0;
-        std::size_t decimal_pos = TC_GROUP_WIDTH - 1;
-
-        for (auto c : tc) {
-            if (group_index++ < TC_GROUP_WIDTH) {
-                current += (c - TCSTRING_CHAR_OFFSET) * (std::pow(10, decimal_pos--)); // TODO: Roll your own integral pow function to avoid conversion
-            }
-
-            else {
-                this->_values[values_index++] = current;
-                current = 0;
-                group_index = 0;
-                decimal_pos = TC_GROUP_WIDTH - 1;
-            }
-        }
-
-        this->_values[values_index] = current;
-    }
+        , _values{INIT_GROUPS_WITH_SV(tc)}
+    {}
 
 private:
     inline bool is_valid_tc_string(const string_view_t tc)
@@ -1241,6 +1230,7 @@ private:
 #undef TCFLAGS_ERROR
 
 #undef UNWRAP_TCVALUES
+#undef INIT_GROUPS_WITH_SV
 #undef TCVALUES_DEFAULT_INITIALIZER
 #undef TCSTRING_DEFAULT_INITIALIZER
 
