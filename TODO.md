@@ -1,6 +1,12 @@
+## 2024-08-23
+
+- [X] [F] Add suites for tests
+
+___
+
 ## 2024-08-22
 
-- [ ] [F] Basic test runner suite
+- [X] [F] Basic test runner suite
 - [ ] [F] CMake build script for tests and examples
 - [ ] [F] Define public interfaces for BasicTimecode and fps
 - [ ] [F] Static overloads for std::chrono::duration
