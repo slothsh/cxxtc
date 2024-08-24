@@ -20,7 +20,8 @@ ___
 - [X] [R] Constrain ordering operator for DECLARE_ENUM to only accept same type as enum
 - [X] [R] Add implicit conversion to enum variant from enum type for DECLARE_ENUM macro
 - [ ] [R] Convert optional types to expected types for more context on errors
-- [ ] [R] Prevent implicit construction and conversion from underlying types for DECLARE_ENUM!
+- [ ] [R] Prevent implicit construction and conversion from underlying types for DECLARE_ENUM! I.e Fps from ints
+- [ ] [R] Detect integer wrap-around and handle accordingly
 
 ___
 

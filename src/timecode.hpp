@@ -15,6 +15,7 @@
 #include <stdexcept>
 #include <format>
 #include <iostream>
+#include <limits>
 
 // -----------------------------------------------------------------------------
 //
@@ -81,13 +82,14 @@ namespace __cxxtc {
 
     DECLARE_ENUM(Fps, int,
         ENUM_VARIANTS(
-            F_23P976_DF,
             F_23P976_NDF,
             F_25,
             F_24,
-            F_29P97_DF,
             F_29P97_NDF,
             F_30,
+
+            F_23P976_DF = 100,
+            F_29P97_DF,
         ),
 
         ENUM_BODY(
@@ -110,6 +112,10 @@ namespace __cxxtc {
                     default: CXXTC_THROW(std::format("unknown fps type with value: {}", fps.as_underlying()));
                  }
             }
+
+            inline static constexpr bool drop_frame(Fps fps) {
+                return fps >= 100;
+            }
         )
     );
 
@@ -128,7 +134,8 @@ namespace __cxxtc {
 
 #define CXXTC_TICK_RATE_DEFAULT 1000
 #define CXXTC_TICKS_DEFAULT 0
-#define CXXTC_FLAGS_DEFAULT 0
+#define CXXTC_FLAG_DEFAULT 0b00000000
+#define CXXTC_FLAG_DROPFRAME 0b00000001
 #define CXXTC_REGULAR_FORM_SIZE 11
 #define CXXTC_EXTENDED_FORM_SIZE 15
 #define CXXTC_HRS_BEGIN_INDEX 0
@@ -165,19 +172,21 @@ struct BasicTimecode {
     using dynamic_array_type = std::vector<T>;
 
     static constexpr ticks_type TICK_RATE = ticks_type{CXXTC_TICK_RATE_DEFAULT};
+    static constexpr auto TICKS_MAX = [](fps_type fps) constexpr { return CXXTC_HRS_MAX * CXXTC_1HR_TICKS(fps_enum_type::to_unsigned<ticks_type>(fps), TICK_RATE); };
 
+public:
     constexpr BasicTimecode() = delete;
 
     constexpr BasicTimecode(fps_type fps) noexcept
         : _fps(fps)
         , _ticks(CXXTC_TICKS_DEFAULT)
-        , _flags(CXXTC_FLAGS_DEFAULT)
+        , _flags(CXXTC_FLAG_DEFAULT)
     {}
 
     constexpr BasicTimecode(string_view_type tc, fps_type fps)
         : _fps(fps)
         , _ticks(CXXTC_TICKS_DEFAULT)
-        , _flags(CXXTC_FLAGS_DEFAULT)
+        , _flags(CXXTC_FLAG_DEFAULT)
     {
         auto const ticks = BasicTimecode::timecode_to_ticks(tc, fps);
         if (!ticks.has_value()) {
@@ -186,6 +195,14 @@ struct BasicTimecode {
         _ticks = ticks.value();
     }
 
+private:
+    explicit constexpr BasicTimecode(fps_type fps, ticks_type ticks, flags_type flags) noexcept
+        : _fps(fps)
+        , _ticks(ticks)
+        , _flags(flags)
+    {}
+
+public:
     static constexpr std::optional<ticks_type> timecode_to_ticks(std::string_view tc, fps_type fps) noexcept {
         auto const tc_size = tc.size();
         if (tc_size != CXXTC_REGULAR_FORM_SIZE && tc_size != CXXTC_EXTENDED_FORM_SIZE) {
@@ -200,7 +217,7 @@ struct BasicTimecode {
             auto const second_char = tc[i + 1];
 
             // NOTE: In the regular form, size of tc_string is NOT a multiple
-            // of 3. We do not assume that the user has provided us with a
+            // of 3, and we do not assume that the user has provided us with a
             // valid null-terminated string, therefore, we explicitly terminate
             // with a null-byte.
             auto const third_char = (tc_size == CXXTC_EXTENDED_FORM_SIZE || i < CXXTC_FRAMES_BEGIN_INDEX)
@@ -260,103 +277,249 @@ struct BasicTimecode {
         return ticks;
     }
 
+    static constexpr ticks_type timecode_to_ticks_unchecked(std::string_view tc, fps_type fps) {
+        auto const tc_size = tc.size();
+        ticks_type ticks = 0;
+        auto const fps_unsigned = fps_enum_type::to_unsigned<ticks_type>(fps);
+
+        for (std::size_t i = 0; i < tc_size; i += 3) {
+            auto const first_char = tc[i + 0];
+            auto const second_char = tc[i + 1];
+
+            auto const third_char = (tc_size == CXXTC_EXTENDED_FORM_SIZE || i < CXXTC_FRAMES_BEGIN_INDEX)
+                ? tc[i + 2]
+                : '\0';
+
+            auto const hundreds = (first_char - '0') * 100u;
+            auto const tens = (i == CXXTC_TICKS_BEGIN_INDEX) ? (second_char - '0') * 10u : (first_char - '0') * 10u;
+            auto const units = (i == CXXTC_TICKS_BEGIN_INDEX) ? (third_char - '0') * 1u : (second_char - '0') * 1u;
+            auto const value = (i == CXXTC_TICKS_BEGIN_INDEX) ? hundreds + tens + units : tens + units;
+
+            switch (i) {
+                case CXXTC_HRS_BEGIN_INDEX: {
+                    ticks += value * CXXTC_1HR_TICKS(fps_unsigned, TICK_RATE);
+                } break;
+
+                case CXXTC_MINS_BEGIN_INDEX: {
+                    ticks += value * CXXTC_1MIN_TICKS(fps_unsigned, TICK_RATE);
+                } break;
+
+                case CXXTC_SECS_BEGIN_INDEX: {
+                    ticks += value * CXXTC_1SEC_TICKS(fps_unsigned, TICK_RATE);
+                } break;
+
+                case CXXTC_FRAMES_BEGIN_INDEX: {
+                    ticks += value * CXXTC_1FRAME_TICKS(TICK_RATE);
+                } break;
+
+                case CXXTC_TICKS_BEGIN_INDEX: {
+                    ticks += value;
+                } break;
+
+                default: CXXTC_THROW(std::format("could not parse timecode string \"{}\"", tc));
+            }
+        }
+
+        return ticks;
+    }
+
     template<std::unsigned_integral T>
     static constexpr std::optional<BasicTimecode> from_ticks(T ticks, fps_type fps) noexcept {
-        CXXTC_TODO("not implemented");
+        if (ticks > TICKS_MAX(fps)) { return std::nullopt; }
+        flags_type flags = (fps_enum_type::drop_frame(fps)) ? CXXTC_FLAG_DROPFRAME : CXXTC_FLAG_DEFAULT;
+        return BasicTimecode{ fps, ticks, flags };
     }
 
     template<std::unsigned_integral T>
     static constexpr BasicTimecode from_ticks_unchecked(T ticks, fps_type fps) {
-        CXXTC_TODO("not implemented");
+        flags_type flags = (fps_enum_type::drop_frame(fps)) ? CXXTC_FLAG_DROPFRAME : CXXTC_FLAG_DEFAULT;
+        return BasicTimecode{ fps, ticks, flags };
     }
 
     template<std::unsigned_integral T>
     static constexpr std::optional<BasicTimecode> from_frames(T frames, fps_type fps) noexcept {
-        CXXTC_TODO("not implemented");
+        auto const ticks = frames * CXXTC_1FRAME_TICKS(TICK_RATE); 
+        return BasicTimecode::from_ticks(ticks, fps);
     }
 
     template<std::unsigned_integral T>
     static constexpr BasicTimecode from_frames_unchecked(T frames, fps_type fps) {
-        CXXTC_TODO("not implemented");
+        auto const ticks = frames * CXXTC_1FRAME_TICKS(TICK_RATE); 
+        return BasicTimecode::from_ticks_unchecked(ticks, fps);
     }
 
     template<std::unsigned_integral T>
     static constexpr std::optional<BasicTimecode> from_seconds(T seconds, fps_type fps) noexcept {
-        CXXTC_TODO("not implemented");
+        auto const ticks = seconds * CXXTC_1SEC_TICKS(fps, TICK_RATE); 
+        return BasicTimecode::from_ticks(ticks, fps);
     }
 
     template<std::unsigned_integral T>
     static constexpr BasicTimecode from_seconds_unchecked(T seconds, fps_type fps) {
-        CXXTC_TODO("not implemented");
+        auto const ticks = seconds * CXXTC_1SEC_TICKS(fps, TICK_RATE); 
+        return BasicTimecode::from_ticks_unchecked(ticks, fps);
     }
 
     template<std::unsigned_integral T>
     static constexpr std::optional<BasicTimecode> from_minutes(T minutes, fps_type fps) noexcept {
-        CXXTC_TODO("not implemented");
+        auto const ticks = minutes * CXXTC_1MIN_TICKS(fps, TICK_RATE); 
+        return BasicTimecode::from_ticks(ticks, fps);
     }
 
     template<std::unsigned_integral T>
     static constexpr BasicTimecode from_minutes_unchecked(T minutes, fps_type fps) {
-        CXXTC_TODO("not implemented");
+        auto const ticks = minutes * CXXTC_1MIN_TICKS(fps, TICK_RATE); 
+        return BasicTimecode::from_ticks_unchecked(ticks, fps);
     }
 
     template<std::unsigned_integral T>
     static constexpr std::optional<BasicTimecode> from_hours(T hours, fps_type fps) noexcept {
-        CXXTC_TODO("not implemented");
+        auto const ticks = hours * CXXTC_1HR_TICKS(fps, TICK_RATE); 
+        return BasicTimecode::from_ticks(ticks, fps);
     }
 
     template<std::unsigned_integral T>
     static constexpr BasicTimecode from_hours_unchecked(T hours, fps_type fps) {
-        CXXTC_TODO("not implemented");
+        auto const ticks = hours * CXXTC_1HR_TICKS(fps, TICK_RATE); 
+        return BasicTimecode::from_ticks_unchecked(ticks, fps);
     }
 
     template<std::unsigned_integral T>
     static constexpr std::optional<BasicTimecode> from_hmsf(T hours, T minutes, T seconds, T frames, fps_type fps) noexcept {
-        CXXTC_TODO("not implemented");
+        auto ticks = 0;
+        ticks += hours * CXXTC_1HR_TICKS(fps, TICK_RATE); 
+        ticks += minutes * CXXTC_1MIN_TICKS(fps, TICK_RATE); 
+        ticks += seconds * CXXTC_1SEC_TICKS(fps, TICK_RATE); 
+        ticks += frames * CXXTC_1FRAME_TICKS(TICK_RATE); 
+        return BasicTimecode::from_ticks(ticks, fps);
     }
 
     template<std::unsigned_integral T>
-    static constexpr BasicTimecode from_hmsf_unchecked(T hours, T minutes, T seconds, T frames, fps_type fps) noexcept {
-        CXXTC_TODO("not implemented");
+    static constexpr BasicTimecode from_hmsf_unchecked(T hours, T minutes, T seconds, T frames, fps_type fps) {
+        auto ticks = 0;
+        ticks += hours * CXXTC_1HR_TICKS(fps, TICK_RATE); 
+        ticks += minutes * CXXTC_1MIN_TICKS(fps, TICK_RATE); 
+        ticks += seconds * CXXTC_1SEC_TICKS(fps, TICK_RATE); 
+        ticks += frames * CXXTC_1FRAME_TICKS(TICK_RATE); 
+        return BasicTimecode::from_ticks_unchecked(ticks, fps);
     }
 
     static constexpr std::optional<BasicTimecode> from_string(string_view_type tc, fps_type fps) noexcept {
-        CXXTC_TODO("not implemented");
+        auto const ticks = BasicTimecode::timecode_to_ticks(tc, fps);
+        return BasicTimecode::from_ticks(ticks, fps);
     }
 
-    static constexpr BasicTimecode from_string_unchecked(string_view_type tc, fps_type fps) noexcept {
-        CXXTC_TODO("not implemented");
+    static constexpr BasicTimecode from_string_unchecked(string_view_type tc, fps_type fps) {
+        auto const ticks = BasicTimecode::timecode_to_ticks_unchecked(tc, fps);
+        return BasicTimecode::from_ticks_unchecked(ticks, fps);
     }
 
     template<std::unsigned_integral T, std::size_t N>
         requires (N == 4 || N == 5)
     static constexpr std::optional<BasicTimecode> from_parts(array_type<T, N> parts, fps_type fps) noexcept {
-        CXXTC_TODO("not implemented");
+        auto ticks = 0;
+
+        if constexpr (N == 4) {
+            auto const [h, m, s, f] = parts;
+            ticks += h * CXXTC_1HR_TICKS(fps, TICK_RATE); 
+            ticks += m * CXXTC_1MIN_TICKS(fps, TICK_RATE); 
+            ticks += s * CXXTC_1SEC_TICKS(fps, TICK_RATE); 
+            ticks += f * CXXTC_1FRAME_TICKS(TICK_RATE); 
+        } else {
+            auto const [h, m, s, f, t] = parts;
+            ticks += h * CXXTC_1HR_TICKS(fps, TICK_RATE); 
+            ticks += m * CXXTC_1MIN_TICKS(fps, TICK_RATE); 
+            ticks += s * CXXTC_1SEC_TICKS(fps, TICK_RATE); 
+            ticks += f * CXXTC_1FRAME_TICKS(TICK_RATE); 
+            ticks += t;
+        }
+
+        return BasicTimecode::from_ticks(ticks, fps);
     }
 
     template<std::unsigned_integral T>
     static std::optional<BasicTimecode> from_parts(dynamic_array_type<T> const& parts, fps_type fps) {
-        CXXTC_TODO("not implemented");
+        std::size_t size = parts.size();
+        if (size != 4 || size != 5) { return std::nullopt; }
+
+        auto ticks = 0;
+
+        if (size == 4) {
+            auto const h = parts[0];
+            auto const s = parts[1];
+            auto const m = parts[2];
+            auto const f = parts[3];
+
+            ticks += h * CXXTC_1HR_TICKS(fps, TICK_RATE); 
+            ticks += m * CXXTC_1MIN_TICKS(fps, TICK_RATE); 
+            ticks += s * CXXTC_1SEC_TICKS(fps, TICK_RATE); 
+            ticks += f * CXXTC_1FRAME_TICKS(TICK_RATE); 
+        } else {
+            auto const h = parts[0];
+            auto const s = parts[1];
+            auto const m = parts[2];
+            auto const f = parts[3];
+            auto const t = parts[4];
+
+            ticks += h * CXXTC_1HR_TICKS(fps, TICK_RATE); 
+            ticks += m * CXXTC_1MIN_TICKS(fps, TICK_RATE); 
+            ticks += s * CXXTC_1SEC_TICKS(fps, TICK_RATE); 
+            ticks += f * CXXTC_1FRAME_TICKS(TICK_RATE); 
+            ticks += t;
+        }
+
+        return BasicTimecode::from_ticks(ticks, fps);
     }
 
     template<std::unsigned_integral T>
     static BasicTimecode from_parts_unchecked(dynamic_array_type<T> const& parts, fps_type fps) {
-        CXXTC_TODO("not implemented");
+        std::size_t size = parts.size();
+        auto ticks = 0;
+
+        if (size == 4) {
+            auto const h = parts[0];
+            auto const s = parts[1];
+            auto const m = parts[2];
+            auto const f = parts[3];
+
+            ticks += h * CXXTC_1HR_TICKS(fps, TICK_RATE); 
+            ticks += m * CXXTC_1MIN_TICKS(fps, TICK_RATE); 
+            ticks += s * CXXTC_1SEC_TICKS(fps, TICK_RATE); 
+            ticks += f * CXXTC_1FRAME_TICKS(TICK_RATE); 
+        } else if (size == 5) {
+            auto const h = parts[0];
+            auto const s = parts[1];
+            auto const m = parts[2];
+            auto const f = parts[3];
+            auto const t = parts[4];
+
+            ticks += h * CXXTC_1HR_TICKS(fps, TICK_RATE); 
+            ticks += m * CXXTC_1MIN_TICKS(fps, TICK_RATE); 
+            ticks += s * CXXTC_1SEC_TICKS(fps, TICK_RATE); 
+            ticks += f * CXXTC_1FRAME_TICKS(TICK_RATE); 
+            ticks += t;
+        } else {
+            CXXTC_THROW(std::format("timecode parts in dynamically allocated array with size {} could not be parsed: {}", size, parts));
+        }
+
+        return BasicTimecode::from_ticks_unchecked(ticks, fps);
     }
 
     template<std::unsigned_integral U = std::uint32_t>
+        requires (std::numeric_limits<U>::max >= std::numeric_limits<ticks_type>::max)
     inline constexpr U to_unsigned() const noexcept {
-        CXXTC_TODO("not implemented");
+        return _ticks;
     }
 
     template<std::signed_integral I = std::int32_t>
+        requires (std::numeric_limits<I>::max >= std::numeric_limits<ticks_type>::max)
     inline constexpr I to_signed() const noexcept {
-        CXXTC_TODO("not implemented");
+        return _ticks;
     }
 
     template<std::floating_point F = float>
     inline constexpr F to_float() const noexcept {
-        CXXTC_TODO("not implemented");
+        return _ticks;
     }
 
     template<typename S = std::string>
@@ -423,7 +586,8 @@ private:
 #undef CXXTC_TICK_RATE_DEFAULT
 #undef CXXTC_TODO
 #undef CXXTC_TICKS_DEFAULT
-#undef CXXTC_FLAGS_DEFAULT
+#undef CXXTC_FLAG_DEFAULT
+#undef CXXTC_FLAG_DROPFRAME
 #undef CXXTC_REGULAR_FORM_SIZE
 #undef CXXTC_EXTENDED_FORM_SIZE
 #undef CXXTC_HRS_BEGIN_INDEX

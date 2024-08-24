@@ -61,6 +61,42 @@ SUITE("timecode") {
             auto const letters_in_string = Timecode::timecode_to_ticks("de:ad:be:ef", F_25);
             ASSERT(!letters_in_string.has_value() == true);
         };
+
+        TEST("conversion from valid ticks succeed") {
+            auto const fps = F_25;
+            auto const ticks = (60 * 60 * Fps::to_unsigned<std::uint32_t>(fps) * TICK_RATE) + 69;
+            auto const tc1 = Timecode::from_ticks(ticks, fps).value();
+            ASSERT(tc1.hours_part() == 1);
+            ASSERT(tc1.minutes_part() == 0);
+            ASSERT(tc1.seconds_part() == 0);
+            ASSERT(tc1.frames_part() == 0);
+            ASSERT(tc1.ticks_part() == 69);
+        };
+
+        TEST("conversion from invalid ticks fail") {
+            auto const fps = F_25;
+            auto const ticks = (24 * 60 * 60 * Fps::to_unsigned<std::uint32_t>(fps) * TICK_RATE) + 1;
+            auto const tc1 = Timecode::from_ticks(ticks, fps);
+            ASSERT(!tc1.has_value());
+        };
+
+        TEST("conversion from valid frames succeed") {
+            auto const fps = F_30;
+            auto const frames = (60 * 60 * Fps::to_unsigned<std::uint32_t>(fps));
+            auto const tc1 = Timecode::from_frames(frames, fps).value();
+            ASSERT(tc1.hours_part() == 1);
+            ASSERT(tc1.minutes_part() == 0);
+            ASSERT(tc1.seconds_part() == 0);
+            ASSERT(tc1.frames_part() == 0);
+            ASSERT(tc1.ticks_part() == 0);
+        };
+
+        TEST("conversion from invalid frames fail") {
+            auto const fps = F_30;
+            auto const frames = (24 * 60 * 60 * Fps::to_unsigned<std::uint32_t>(fps)) + 1;
+            auto const tc1 = Timecode::from_frames(frames, fps);
+            ASSERT(!tc1.has_value());
+        };
     };
 
     SECTION("internals yield expected values") {
