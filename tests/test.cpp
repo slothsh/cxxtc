@@ -1,6 +1,7 @@
 #include <string_view>
 #include <vector>
 #include <cstddef>
+#include <exception>
 #include "test.hpp"
 
 namespace __test {
@@ -11,10 +12,13 @@ Stats statistics(std::unordered_map<std::string_view, Section> const& sections) 
     for (auto const& [section_name, section] : sections) {
         total += section.tests.size();
         for (auto const& [test_name, test] : section.tests) {
-            bool found_failed = false;
+            bool found_failed = test.did_throw;
+            if (found_failed) { failed += 1; continue; }
+
             for (auto const& [expr, eval, msg] : test.assertions)  {
                 if (!eval) { found_failed = true; break; };
             }
+
             if (found_failed) { failed += 1; } else { successful += 1; }
         }
     }
@@ -33,6 +37,7 @@ void report(std::string_view suite_name, std::unordered_map<std::string_view, Se
     std::size_t i = 0; 
     for (auto const& [section_name, section] : sections) {
         std::cout << std::format("{}:\n", section_name);
+        std::size_t j = 0; 
         for (auto const& [test_name, test] : section.tests) {
             auto const longest = [&assertions = test.assertions]() {
                 if (assertions.size() == 0) return 0uz;
@@ -42,13 +47,21 @@ void report(std::string_view suite_name, std::unordered_map<std::string_view, Se
                 }
                 return longest;
             }();
-            bool failed = [&assertions = test.assertions]() {
-                for (auto const& [expr, eval, msg] : assertions) {
+            bool failed = [&test]() {
+                for (auto const& [expr, eval, msg] : test.assertions) {
                     if (!eval) return true;
                 }
-                return false;
+                return false || test.did_throw;
             }();
+            
             std::cout << std::format("    {}: {}\n", test_name, (failed) ? "failed" : "successful");
+
+            if (test.did_throw) {
+                for (auto const& exception : test.exceptions) {
+                    std::cout << std::format("        {:<6} {}\n", "exception:", exception);
+                }
+            }
+
             for (auto const& [expr, eval, msg] : test.assertions) {
                 if (eval) {
                     std::cout << std::format("        {:<6} {:<{}}\n", "success:", expr, longest);
@@ -56,6 +69,7 @@ void report(std::string_view suite_name, std::unordered_map<std::string_view, Se
                     std::cout << std::format("        {:<8} {:<{}} => {}\n", "failed:", expr, longest, msg);
                 }
             }
+            if (j++ < section.tests.size() - 1) std::cout << '\n';
         }
         if (i++ < sections.size() - 1) std::cout << '\n';
     }
@@ -68,7 +82,12 @@ void Section::run(std::string_view section_name) {
         fn(section_name, tests);
         for (auto& [test_name, test] : tests) {
             if (test.fn) {
-                test.fn(test_name, test.assertions);
+                try {
+                    test.fn(test_name, test.assertions);
+                } catch (std::exception const& error) {
+                    test.did_throw = true;
+                    test.exceptions.push_back(error.what());
+                } 
             }
         }
     }

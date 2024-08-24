@@ -29,6 +29,7 @@
             }                                                                           \
                                                                                         \
             catch (std::exception const& error) {                                       \
+                std::cout << error.what() << '\n';                                      \
             }                                                                           \
                                                                                         \
             catch (...) {                                                               \
@@ -105,6 +106,8 @@ struct Test {
     using fn_type = void(*)(std::string_view, std::vector<Assertion>&);
     fn_type fn;
     std::vector<Assertion> assertions;
+    bool did_throw = false;
+    std::vector<std::string> exceptions = {};
 };
 
 struct Section {
