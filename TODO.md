@@ -8,6 +8,14 @@
 
 ___
 
+## 2024-08-25
+
+- [ ] [F] Implement implicitly deleted copy constructor + assignment operator
+
+- [ ] [R] Factor timecode string parsing into common function for both checked + unchecked string_to_timecode()
+
+___
+
 ## 2024-08-24
 
 - [ ] [F] Implement tc string parsing to ticks & vice-versa

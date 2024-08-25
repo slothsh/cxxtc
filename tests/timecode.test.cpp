@@ -62,40 +62,108 @@ SUITE("timecode") {
             ASSERT(!letters_in_string.has_value() == true);
         };
 
-        TEST("conversion from valid ticks succeed") {
-            auto const fps = F_25;
-            auto const ticks = (60 * 60 * Fps::to_unsigned<std::uint32_t>(fps) * TICK_RATE) + 69;
-            auto const tc1 = Timecode::from_ticks(ticks, fps).value();
-            ASSERT(tc1.hours_part() == 1);
-            ASSERT(tc1.minutes_part() == 0);
-            ASSERT(tc1.seconds_part() == 0);
-            ASSERT(tc1.frames_part() == 0);
-            ASSERT(tc1.ticks_part() == 69);
+        TEST("conversion from valid parts succeed") {
+            {
+                auto const fps = F_24;
+                auto const ticks = 999u;
+                auto const tc1 = Timecode::from_ticks(ticks, fps).value();
+                ASSERT(tc1.hours_part() == 0);
+                ASSERT(tc1.minutes_part() == 0);
+                ASSERT(tc1.seconds_part() == 0);
+                ASSERT(tc1.frames_part() == 0);
+                ASSERT(tc1.ticks_part() == 999);
+            }
+
+            {
+                auto const fps = F_25;
+                auto const frames = 51u;
+                auto const tc1 = Timecode::from_frames(frames, fps).value();
+                ASSERT(tc1.hours_part() == 0);
+                ASSERT(tc1.minutes_part() == 0);
+                ASSERT(tc1.seconds_part() == 2);
+                ASSERT(tc1.frames_part() == 1);
+                ASSERT(tc1.ticks_part() == 0);
+            }
+
+            {
+                auto const fps = F_30;
+                auto const seconds = 61u;
+                auto const tc1 = Timecode::from_seconds(seconds, fps).value();
+                ASSERT(tc1.hours_part() == 0);
+                ASSERT(tc1.minutes_part() == 1);
+                ASSERT(tc1.seconds_part() == 1);
+                ASSERT(tc1.frames_part() == 0);
+                ASSERT(tc1.ticks_part() == 0);
+            }
+
+            {
+                auto const fps = F_30;
+                auto const minutes = 121u;
+                auto const tc1 = Timecode::from_minutes(minutes, fps).value();
+                ASSERT(tc1.hours_part() == 2);
+                ASSERT(tc1.minutes_part() == 1);
+                ASSERT(tc1.seconds_part() == 0);
+                ASSERT(tc1.frames_part() == 0);
+                ASSERT(tc1.ticks_part() == 0);
+            }
+
+            {
+                auto const fps = F_30;
+                auto const ticks = 10u;
+                auto const tc1 = Timecode::from_hours(ticks, fps).value();
+                ASSERT(tc1.hours_part() == 10);
+                ASSERT(tc1.minutes_part() == 0);
+                ASSERT(tc1.seconds_part() == 0);
+                ASSERT(tc1.frames_part() == 0);
+                ASSERT(tc1.ticks_part() == 0);
+            }
         };
 
-        TEST("conversion from invalid ticks fail") {
-            auto const fps = F_25;
-            auto const ticks = (24 * 60 * 60 * Fps::to_unsigned<std::uint32_t>(fps) * TICK_RATE) + 1;
-            auto const tc1 = Timecode::from_ticks(ticks, fps);
-            ASSERT(!tc1.has_value());
-        };
+        TEST("conversion from invalid parts fail") {
+            {
+                auto const fps = F_25;
+                auto const ticks = 24 * 60 * 60 * 25u * TICK_RATE + 1;
+                auto const tc1 = Timecode::from_ticks(ticks, fps);
+                ASSERT(!tc1.has_value());
+            }
 
-        TEST("conversion from valid frames succeed") {
-            auto const fps = F_30;
-            auto const frames = (60 * 60 * Fps::to_unsigned<std::uint32_t>(fps));
-            auto const tc1 = Timecode::from_frames(frames, fps).value();
-            ASSERT(tc1.hours_part() == 1);
-            ASSERT(tc1.minutes_part() == 0);
-            ASSERT(tc1.seconds_part() == 0);
-            ASSERT(tc1.frames_part() == 0);
-            ASSERT(tc1.ticks_part() == 0);
-        };
+            {
+                auto const fps = F_25;
+                auto const frames = 24u * 60u * 60u * 25u + 1u;
+                auto const tc1 = Timecode::from_frames(frames, fps);
+                ASSERT(!tc1.has_value());
+            }
 
-        TEST("conversion from invalid frames fail") {
-            auto const fps = F_30;
-            auto const frames = (24 * 60 * 60 * Fps::to_unsigned<std::uint32_t>(fps)) + 1;
-            auto const tc1 = Timecode::from_frames(frames, fps);
-            ASSERT(!tc1.has_value());
+            {
+                auto const fps = F_25;
+                auto const seconds = 24u * 60u * 60u + 1u;
+                auto const tc1 = Timecode::from_seconds(seconds, fps);
+                ASSERT(!tc1.has_value());
+            }
+
+            {
+                auto const fps = F_25;
+                auto const minutes = 24u * 60u + 1u;
+                auto const tc1 = Timecode::from_minutes(minutes, fps);
+                ASSERT(!tc1.has_value());
+            }
+
+            {
+                auto const fps = F_25;
+                auto const hours = 24u + 1u;
+                auto const tc1 = Timecode::from_hours(hours, fps);
+                ASSERT(!tc1.has_value());
+            }
+
+            {
+                auto const fps = F_25;
+                auto const hours = 24u + 1u;
+                auto const minutes = 24u * 60u + 1u;
+                auto const seconds = 24u * 60u * 60u + 1u;
+                auto const frames = 24u * 60u * 60u * 25u + 1u;
+                auto const tc1 = Timecode::from_hmsf(hours, minutes, seconds, frames, fps);
+                ASSERT(!tc1.has_value());
+            }
         };
     };
 
