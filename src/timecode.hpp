@@ -14,7 +14,6 @@
 #include <vector>
 #include <stdexcept>
 #include <format>
-#include <iostream>
 #include <limits>
 
 // -----------------------------------------------------------------------------
@@ -57,8 +56,8 @@
         static constexpr const char* type_name = LITERAL(type);                                                   \
         enum Variant : underlying_type variants;                                                                  \
         __VA_ARGS__                                                                                               \
-        type(Variant variant) : _variant(variant) {}                                                              \
-        type(type const& other) : _variant(other._variant) {}                                                     \
+        constexpr type(Variant variant) : _variant(variant) {}                                                    \
+        constexpr type(type const& other) : _variant(other._variant) {}                                           \
         ENUM_THREE_WAY_OPERATOR(type, _variant)                                                                   \
         inline constexpr void operator=(Variant variant)  { _variant = variant; }                                 \
         inline constexpr underlying_type as_underlying() const { return static_cast<underlying_type>(_variant); } \
@@ -426,15 +425,22 @@ public:
         if constexpr (N == 4) {
             auto const [h, m, s, f] = parts;
             ticks += h * CXXTC_1HR_TICKS(fps_unsigned, TICK_RATE); 
+            if (ticks > TICKS_MAX(fps)) { return std::nullopt; }
             ticks += m * CXXTC_1MIN_TICKS(fps_unsigned, TICK_RATE); 
+            if (ticks > TICKS_MAX(fps)) { return std::nullopt; }
             ticks += s * CXXTC_1SEC_TICKS(fps_unsigned, TICK_RATE); 
+            if (ticks > TICKS_MAX(fps)) { return std::nullopt; }
             ticks += f * CXXTC_1FRAME_TICKS(TICK_RATE); 
         } else {
             auto const [h, m, s, f, t] = parts;
             ticks += h * CXXTC_1HR_TICKS(fps_unsigned, TICK_RATE); 
+            if (ticks > TICKS_MAX(fps)) { return std::nullopt; }
             ticks += m * CXXTC_1MIN_TICKS(fps_unsigned, TICK_RATE); 
+            if (ticks > TICKS_MAX(fps)) { return std::nullopt; }
             ticks += s * CXXTC_1SEC_TICKS(fps_unsigned, TICK_RATE); 
+            if (ticks > TICKS_MAX(fps)) { return std::nullopt; }
             ticks += f * CXXTC_1FRAME_TICKS(TICK_RATE); 
+            if (ticks > TICKS_MAX(fps)) { return std::nullopt; }
             ticks += t;
         }
 
@@ -456,8 +462,11 @@ public:
             auto const f = parts[3];
 
             ticks += h * CXXTC_1HR_TICKS(fps_unsigned, TICK_RATE); 
+            if (ticks > TICKS_MAX(fps)) { return std::nullopt; }
             ticks += m * CXXTC_1MIN_TICKS(fps_unsigned, TICK_RATE); 
+            if (ticks > TICKS_MAX(fps)) { return std::nullopt; }
             ticks += s * CXXTC_1SEC_TICKS(fps_unsigned, TICK_RATE); 
+            if (ticks > TICKS_MAX(fps)) { return std::nullopt; }
             ticks += f * CXXTC_1FRAME_TICKS(TICK_RATE); 
         } else {
             auto const h = parts[0];
@@ -467,9 +476,13 @@ public:
             auto const t = parts[4];
 
             ticks += h * CXXTC_1HR_TICKS(fps_unsigned, TICK_RATE); 
+            if (ticks > TICKS_MAX(fps)) { return std::nullopt; }
             ticks += m * CXXTC_1MIN_TICKS(fps_unsigned, TICK_RATE); 
+            if (ticks > TICKS_MAX(fps)) { return std::nullopt; }
             ticks += s * CXXTC_1SEC_TICKS(fps_unsigned, TICK_RATE); 
+            if (ticks > TICKS_MAX(fps)) { return std::nullopt; }
             ticks += f * CXXTC_1FRAME_TICKS(TICK_RATE); 
+            if (ticks > TICKS_MAX(fps)) { return std::nullopt; }
             ticks += t;
         }
 

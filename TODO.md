@@ -11,6 +11,10 @@ ___
 ## 2024-08-25
 
 - [ ] [F] Implement implicitly deleted copy constructor + assignment operator
+- [ ] [F] Concept to constrain Fps interface for BasicTimecode
+- [ ] [F] Take fps_enum_type as template parameter
+- [ ] [F] Handle unmatched fps values during copy construction + assigment
+- [ ] [F] Arithmetic operators
 
 - [ ] [R] Factor timecode string parsing into common function for both checked + unchecked string_to_timecode()
 
