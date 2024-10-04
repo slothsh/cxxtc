@@ -35,31 +35,31 @@ SUITE("timecode") {
 
         TEST("conversion from invalid tc strings fail") {
             auto const ticks_empty_string = Timecode::timecode_to_ticks("", F_25);
-            ASSERT(!ticks_empty_string.has_value() == true);
+            ASSERT(!ticks_empty_string.has_value());
 
             auto const ticks_bad_delimiter = Timecode::timecode_to_ticks("01:02:03.04", F_25);
-            ASSERT(!ticks_bad_delimiter.has_value() == true);
+            ASSERT(!ticks_bad_delimiter.has_value());
 
             auto const ticks_bad_hrs = Timecode::timecode_to_ticks("25:02:03:01", F_25);
-            ASSERT(!ticks_bad_hrs.has_value() == true);
+            ASSERT(!ticks_bad_hrs.has_value());
 
             auto const ticks_bad_mins = Timecode::timecode_to_ticks("01:72:03:10", F_25);
-            ASSERT(!ticks_bad_mins.has_value() == true);
+            ASSERT(!ticks_bad_mins.has_value());
 
             auto const ticks_bad_secs = Timecode::timecode_to_ticks("01:02:69:24", F_25);
-            ASSERT(!ticks_bad_secs.has_value() == true);
+            ASSERT(!ticks_bad_secs.has_value());
 
             auto const ticks_bad_fps = Timecode::timecode_to_ticks("01:02:03:25", F_25);
-            ASSERT(!ticks_bad_fps.has_value() == true);
+            ASSERT(!ticks_bad_fps.has_value());
 
             auto const ticks_bad_ticks = Timecode::timecode_to_ticks("01:02:03:00.1000", F_25);
-            ASSERT(!ticks_bad_ticks.has_value() == true);
+            ASSERT(!ticks_bad_ticks.has_value());
 
             auto const no_leading_zeroes = Timecode::timecode_to_ticks("01:2:03:0.0", F_25);
-            ASSERT(!no_leading_zeroes.has_value() == true);
+            ASSERT(!no_leading_zeroes.has_value());
 
             auto const letters_in_string = Timecode::timecode_to_ticks("de:ad:be:ef", F_25);
-            ASSERT(!letters_in_string.has_value() == true);
+            ASSERT(!letters_in_string.has_value());
         };
 
         TEST("conversion from valid parts succeed") {
