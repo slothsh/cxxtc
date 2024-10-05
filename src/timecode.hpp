@@ -202,7 +202,7 @@ private:
     {}
 
 public:
-    static constexpr std::optional<ticks_type> timecode_to_ticks(std::string_view tc, fps_type fps) noexcept {
+    static constexpr std::optional<ticks_type> timecode_to_ticks(string_view_type tc, fps_type fps) noexcept {
         auto const tc_size = tc.size();
         if (tc_size != CXXTC_REGULAR_FORM_SIZE && tc_size != CXXTC_EXTENDED_FORM_SIZE) {
             return std::nullopt;
@@ -276,7 +276,7 @@ public:
         return ticks;
     }
 
-    static constexpr ticks_type timecode_to_ticks_unchecked(std::string_view tc, fps_type fps) {
+    static constexpr ticks_type timecode_to_ticks_unchecked(string_view_type tc, fps_type fps) {
         auto const tc_size = tc.size();
         ticks_type ticks = 0;
         auto const fps_unsigned = fps_enum_type::to_unsigned<ticks_type>(fps);
