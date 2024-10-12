@@ -602,8 +602,15 @@ private:
 // -----------------------------------------------------------------------------
 
 #undef CXXTC_TODO
+#undef CXXTC_ASSERT
+#undef CXXTC_THROW
+#undef LITERAL
+#undef DELETE_CTORS
+#undef ENUM_VARIANTS
+#undef ENUM_BODY
+#undef ENUM_THREE_WAY_OPERATOR
+#undef DECLARE_ENUM
 #undef CXXTC_TICK_RATE_DEFAULT
-#undef CXXTC_TODO
 #undef CXXTC_TICKS_DEFAULT
 #undef CXXTC_FLAG_DEFAULT
 #undef CXXTC_FLAG_DROPFRAME
