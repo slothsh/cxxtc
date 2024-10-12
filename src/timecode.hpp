@@ -457,8 +457,8 @@ public:
 
         if (size == 4) {
             auto const h = parts[0];
-            auto const s = parts[1];
-            auto const m = parts[2];
+            auto const m = parts[1];
+            auto const s = parts[2];
             auto const f = parts[3];
 
             ticks += h * CXXTC_1HR_TICKS(fps_unsigned, TICK_RATE); 
@@ -470,8 +470,8 @@ public:
             ticks += f * CXXTC_1FRAME_TICKS(TICK_RATE); 
         } else {
             auto const h = parts[0];
-            auto const s = parts[1];
-            auto const m = parts[2];
+            auto const m = parts[1];
+            auto const s = parts[2];
             auto const f = parts[3];
             auto const t = parts[4];
 
@@ -497,8 +497,8 @@ public:
 
         if (size == 4) {
             auto const h = parts[0];
-            auto const s = parts[1];
-            auto const m = parts[2];
+            auto const m = parts[1];
+            auto const s = parts[2];
             auto const f = parts[3];
 
             ticks += h * CXXTC_1HR_TICKS(fps_unsigned, TICK_RATE); 
@@ -507,8 +507,8 @@ public:
             ticks += f * CXXTC_1FRAME_TICKS(TICK_RATE); 
         } else if (size == 5) {
             auto const h = parts[0];
-            auto const s = parts[1];
-            auto const m = parts[2];
+            auto const m = parts[1];
+            auto const s = parts[2];
             auto const f = parts[3];
             auto const t = parts[4];
 
